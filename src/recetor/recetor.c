@@ -77,15 +77,19 @@ int destuff(unsigned char * word, int wordSize, unsigned char *packet, int *pSiz
 int parsePacket(int *fd, unsigned char *packet, int pSize, int *sequenceNumber){
     printf("sq n : %d------------ packet 1: %d\n", *sequenceNumber, packet[1]);
     if(packet[0] == 0x01 && packet[1] == (*(sequenceNumber) + 1) % 256){
-        *sequenceNumber = (*sequenceNumber + 1) % 256;
         int size = (packet[2] << 2) | packet[3];
         printf("size - %d\n", size);
-        int res = write(*fd,&(packet[4]),size);
-        return res;
-    } else if(packet[0] == 0x01 && packet[1] <= (*sequenceNumber)){
+
+        if(write(*fd,&(packet[4]),size) != -1){
+            *sequenceNumber = (*sequenceNumber + 1) % 256;
+            return 0
+        }
+        printf("Wrong writing \n");
+        sleep(3);
+    } /*else if(packet[0] == 0x01 && packet[1] <= (*sequenceNumber)){ _______________________________________________________________________-
         *sequenceNumber = (*sequenceNumber + 1) % 256;
         return 0;    
-    }
+    }*/
     else if (packet[0] == 0x02){
         if( packet[1] == 0x01){
             int size = packet[2];
@@ -213,8 +217,6 @@ int dataLinkState(unsigned char data,unsigned char* word, int* curr){
     }
 }
 
-
-
 int main(int argc, char** argv)
 {
     int fd, res;
@@ -319,11 +321,9 @@ int main(int argc, char** argv)
             if(error) {
                 if(word[2] == C_S0){
                     sendControl(fd, C_REJ0);
-                    lastFrameRcv = 1;
                 }
                 else if(word[2] == C_S1) {
                     sendControl(fd, C_REJ1);
-                    lastFrameRcv = 0;
                 }
             }
             curr = 0;
