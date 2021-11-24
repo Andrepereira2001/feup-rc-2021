@@ -43,10 +43,10 @@ int sendControl(int fd, unsigned char control){
 }
 
 int destuff(unsigned char * word, int wordSize, unsigned char *packet, int *pSize){
-    int i=4;
+    int i = 4;
     unsigned char bcc;
     *pSize = 0;
-    while(i<wordSize){
+    while(i < wordSize){
         if(word[i]==O_ESC){
             i++;
             if(word[i]==O_FST){
@@ -63,7 +63,7 @@ int destuff(unsigned char * word, int wordSize, unsigned char *packet, int *pSiz
         *pSize = *pSize+1;
     }
 
-    *pSize = *pSize -1;
+    *pSize = *pSize - 1;
     bcc = packet[0];
     for(int i=1; i<(*pSize); i++){
         bcc = packet[i]^bcc;
@@ -91,6 +91,7 @@ int parsePacket(int *fd, unsigned char *packet, int pSize, int *sequenceNumber){
             printf("filename -> %s\n",fileName);
             *fd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0666);
             if (*fd < 0) {printf("Erro while opening %s",fileName); return(-1);}
+            *sequenceNumber = 255;
             return 0;
         }
     } else if (packet[0] == 0x03){
@@ -262,8 +263,6 @@ int main(int argc, char** argv)
       exit(-1);
     }
 
-    
-
     printf("New termios structure set\n");
     
     //data-link variables
@@ -309,9 +308,11 @@ int main(int argc, char** argv)
             if(error) {
                 if(word[2] == C_S0){
                     sendControl(fd, C_REJ0);
+                    lastFrameRcv = 1;
                 }
                 else if(word[2] == C_S1) {
                     sendControl(fd, C_REJ1);
+                    lastFrameRcv = 0;
                 }
             }
             curr = 0;
