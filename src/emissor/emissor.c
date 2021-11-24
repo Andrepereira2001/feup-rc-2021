@@ -147,7 +147,7 @@ int sendLatestFrame(int fd, FrameBackup *frameBackup){
 }
 
 int sendFrame(int fd, unsigned char * packet, int size, FrameBackup *frameBackup){
-    unsigned char FRAME[255];
+    unsigned char *FRAME = malloc (255 * sizeof (unsigned char));
     unsigned int currFrame = 0;
     unsigned char bcc;
     

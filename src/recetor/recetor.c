@@ -75,13 +75,22 @@ int destuff(unsigned char * word, int wordSize, unsigned char *packet, int *pSiz
 }
 
 int parsePacket(int *fd, unsigned char *packet, int pSize, int *sequenceNumber){
+    printf("sq n : %d------------ packet 1: %d\n", *sequenceNumber, packet[1]);
     if(packet[0] == 0x01 && packet[1] == (*(sequenceNumber) + 1) % 256){
-        *sequenceNumber = (*sequenceNumber + 1) % 256;
         int size = (packet[2] << 2) | packet[3];
         printf("size - %d\n", size);
-        int res = write(*fd,&(packet[4]),size);
-        return res;
-    } else if (packet[0] == 0x02){
+
+        if(write(*fd,&(packet[4]),size) != -1){
+            *sequenceNumber = (*sequenceNumber + 1) % 256;
+            return 0
+        }
+        printf("Wrong writing \n");
+        sleep(3);
+    } /*else if(packet[0] == 0x01 && packet[1] <= (*sequenceNumber)){ _______________________________________________________________________-
+        *sequenceNumber = (*sequenceNumber + 1) % 256;
+        return 0;    
+    }*/
+    else if (packet[0] == 0x02){
         if( packet[1] == 0x01){
             int size = packet[2];
             unsigned char fileName[255];
@@ -209,8 +218,6 @@ int dataLinkState(unsigned char data,unsigned char* word, int* curr){
     }
 }
 
-
-
 int main(int argc, char** argv)
 {
     int fd, res;
@@ -289,15 +296,20 @@ int main(int argc, char** argv)
         if(currGlobalState==TRANSFER && curr != 0){ //if it is a data frame we need the size
             int error = TRUE;
             if(destuff(word, curr, packet, &pSize) == 0){
+                printf("boas1\n");
                 if(word[2] == C_S0 && lastFrameRcv == 1){
+                    printf("boas2\n");
                     if (parsePacket(&fileFd, packet, pSize, &sequenceNumber) != -1){ // application level error
+                        printf("boas3\n");
                         sendControl(fd, C_RR1);
                         lastFrameRcv = 0;
                         error = FALSE;
                     }
                 }
                 else if(word[2] == C_S1 && lastFrameRcv == 0) {
+                    printf("boas4\n");
                     if (parsePacket(&fileFd, packet, pSize, &sequenceNumber) != -1){ // application level error
+                        printf("boas5\n");
                         sendControl(fd, C_RR0);
                         lastFrameRcv = 1;
                         error = FALSE;
