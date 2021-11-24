@@ -1,0 +1,377 @@
+/*Non-Canonical Input Processing*/
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
+#include <stdlib.h>
+
+#define BAUDRATE B38400
+#define MODEMDEVICE "/dev/ttyS0"
+#define _POSIX_SOURCE 1 /* POSIX compliant source */
+#define FALSE 0
+#define TRUE 1
+#define FLAG 0x7e
+#define AE_SENT 0x03 // Comandos enviados por emissor / resposta recetor 
+#define AR_SENT 0x01 // Comandos enviados por recetor / resposta emissor
+
+#define C_SET 0x03 // control set up
+#define C_DISC 0x0B // control disconnect
+#define C_UA 0x07 // control unnumbered acknowlegement
+#define C_RR0 0x05 // control receiver ready 0
+#define C_RR1 0x85 // control receiver ready 1
+#define C_REJ0 0x03 // control reject 0
+#define C_REJ1 0x83 // control reject 1
+#define C_S0 0x00 // control sent 0 - information frame
+#define C_S1 0x40 // control sent 1 - information frame
+
+#define O_ESC 0x7d // escape octet
+#define O_FST 0x5e // substitui byte FLAG
+#define O_SND 0x5d // substitui byte O_ESC
+
+
+enum DataState{
+    START,
+    FLAG_RCV,
+    A_RCV,
+    C_RCV,
+    BCC_OK,
+    DATA_RCV,
+    END
+};
+
+enum GlobalState{
+    ESTABLISH,
+    TRANSFER,
+    TERMINATE,
+    GLOBAL_END
+};
+
+typedef struct {
+    unsigned char * latestframe;
+    int sizeFrame;
+    int frameToSend; // can only be 0 or 1 represent frame to be send
+    int acceptedFrame;
+} FrameBackup; 
+
+volatile int STOP=FALSE;
+enum DataState currDataState=START;
+enum GlobalState currGlobalState=ESTABLISH;
+
+
+int sendMessage(int fd,unsigned char* message, int size){
+    int res;
+    res = write(fd,message,size);
+    printf("sent: %s, %u\n",message, res);
+    return 0;
+}
+
+int receiveMessage(int fd,unsigned char* buf){
+    return read(fd,buf,1);
+}
+
+int sendControl(int fd, unsigned char control){
+
+    unsigned char CONTROL[5];
+
+    CONTROL[0]=FLAG;
+    CONTROL[1]=AE_SENT;
+    CONTROL[2]=control;
+    CONTROL[3]=CONTROL[1]^CONTROL[2];
+    CONTROL[4]=FLAG;
+
+    sendMessage(fd, CONTROL, 5);
+
+    return 0;
+}
+
+int destuff(unsigned char * word, int wordSize, unsigned char *packet, int *pSize){
+    int i=4;
+    unsigned char bcc;
+    *pSize = 0;
+    while(i<wordSize){
+        if(word[i]==O_ESC){
+            i++;
+            if(word[i]==O_FST){
+                packet[*pSize]=FLAG;
+            }
+            else if (word[i]==O_SND){
+                packet[*pSize]=O_ESC;
+            }
+        }
+        else {
+            packet[*pSize]=word[i];
+        }
+        i++;
+        *pSize = *pSize+1;
+    }
+
+    *pSize = *pSize -1;
+    bcc = packet[0];
+    for(int i=1; i<(*pSize); i++){
+        bcc = packet[i]^bcc;
+    }
+    if(bcc != packet[*pSize]){
+        return -1;
+    }
+    return 0;
+}
+
+int writeToFile(int *fd, unsigned char *packet, int pSize, int *sequenceNumber){
+    if(packet[0] == 0x01 && packet[1] == (*(sequenceNumber) + 1) % 256){
+        *sequenceNumber = (*sequenceNumber + 1) % 256;
+        int size = (packet[2] << 2) | packet[3];
+        printf("size - %d\n", size);
+        int res = write(*fd,&(packet[4]),size);
+        return res;
+    } else if (packet[0] == 0x02){
+        if( packet[1] == 0x01){
+            int size = packet[2];
+            unsigned char fileName[255];
+            for (int i = 0 ; i < size; i++){
+                fileName[i] = packet[i+3];
+            }
+            printf("filename -> %s\n",fileName);
+            *fd = open(fileName, O_WRONLY | O_CREAT );
+            if (*fd < 0) {printf("Erro while opening %s",fileName); return(-1);}
+            return 0;
+        }
+    } else if (packet[0] == 0x03){
+        close(*fd);
+        return 0;
+    }
+    return -1;
+}
+
+int changeState(unsigned char data,unsigned char* word, int* curr){
+    switch(currDataState){
+        case START:
+            if(data == FLAG){
+                currDataState = FLAG_RCV;
+                word[*curr]=data;
+                *curr = *curr+1;
+            }
+            break;
+        case FLAG_RCV:
+            if(data == FLAG){
+                currDataState = FLAG_RCV;
+                word[0]=data;
+                *curr = 1;
+            }
+            else if(data == AE_SENT){
+                currDataState = A_RCV;
+                word[*curr]=data;
+                *curr = *curr+1;
+            }
+            else{
+                currDataState=START;
+                *curr = 0;
+            }
+            break;
+        case A_RCV:
+            if(data == FLAG){
+                currDataState = FLAG_RCV;
+                word[0]=data;
+                *curr = 1;
+            }
+            else if(data == C_SET && (currGlobalState==TRANSFER || currGlobalState==ESTABLISH)){
+                currDataState=C_RCV;
+                word[*curr]=data;
+                *curr = *curr+1;
+            }
+            else if(data == C_DISC && (currGlobalState==TRANSFER || currGlobalState==TERMINATE)){
+                currDataState=C_RCV;
+                word[*curr]=data;
+                *curr = *curr+1;
+            }
+            else if(data == C_UA && currGlobalState==TERMINATE){
+                currDataState=C_RCV;
+                word[*curr]=data;
+                *curr = *curr+1;
+            }
+            else if((data == C_S0 || data == C_S1) && currGlobalState == TRANSFER){
+                currDataState=C_RCV;
+                word[*curr]=data;
+                *curr = *curr+1;
+            }
+            else{
+                currDataState=START;
+                *curr = 0;
+            }
+            break;
+        case C_RCV:
+            if(data == FLAG){
+                currDataState = FLAG_RCV;
+                word[0]=data;
+                *curr = 1;
+            }
+            else if(data == word[1]^word[2]){
+                currDataState = BCC_OK;
+                word[*curr]=data;
+                *curr = *curr+1;
+            }
+            else{
+                currDataState=START;
+                *curr = 0;
+            }
+            break;
+        case BCC_OK:
+            if(data==FLAG){
+                currDataState=END;
+                word[*curr]=data;
+                *curr = 0;
+                if (word[2] == C_SET) currGlobalState = ESTABLISH; 
+                else if (currGlobalState == TRANSFER && word[2] == C_DISC){ 
+                    currGlobalState = TERMINATE;
+                }
+                else if (currGlobalState == TERMINATE && word[2]==C_UA) currGlobalState = GLOBAL_END;
+            }
+            else if (currGlobalState == TRANSFER){
+                currDataState = DATA_RCV;
+                word[*curr]=data;
+                *curr = *curr+1;
+            }
+            else{
+                currDataState=START;
+                *curr = 0;
+            }
+            break;
+        case DATA_RCV:
+            if(data==FLAG){
+                currDataState=END;
+                word[*curr]=data;
+            }
+            else {
+                word[*curr]=data;
+                *curr = *curr+1;
+            }
+            break;
+        case END:
+            break;
+    }
+}
+
+
+int main(int argc, char** argv)
+{
+    int fd,c, res;
+    struct termios oldtio,newtio;
+    unsigned char buf[255];
+
+    if ( (argc < 2) || 
+  	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+  	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+      printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+      exit(1);
+    }
+
+
+  /*
+    Open serial port device for reading and writing and not as controlling tty
+    because we don't want to get killed if linenoise sends CTRL-C.
+  */
+  
+    
+    fd = open(argv[1], O_RDWR | O_NOCTTY );
+    if (fd <0) {perror(argv[1]); exit(-1); }
+
+    if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
+      perror("tcgetattr");
+      exit(-1);
+    }
+
+    bzero(&newtio, sizeof(newtio));
+    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+    newtio.c_iflag = IGNPAR;
+    newtio.c_oflag = 0;
+
+    /* set input mode (non-canonical, no echo,...) */
+    newtio.c_lflag = 0;
+
+    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
+    newtio.c_cc[VMIN]     = 1;   /* blocking read until 5 chars received */
+
+
+  /* 
+    VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
+    leitura do(s) próximo(s) caracter(es)
+  */
+
+
+    tcflush(fd, TCIOFLUSH);
+
+    if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
+      perror("tcsetattr");
+      exit(-1);
+    }
+
+    
+
+    printf("New termios structure set\n");
+    
+    //data-link variables
+    unsigned char word[255];
+    int curr = 0;
+    int lastFrameRcv=1;
+
+    // application variables
+    unsigned char packet[255];
+    int pSize=0;
+    int sequenceNumber = 255;
+    int fileFd;
+
+    while (currGlobalState!=GLOBAL_END){
+        while (currDataState!=END) {       /* loop for input */
+          res = receiveMessage(fd,buf);   /* returns after 5 chars have been input */
+          changeState(buf[0],word,&curr);
+          printf("%x ",buf[0]);
+        }
+        printf("\n");
+
+        currDataState = START;
+        if(currGlobalState==TRANSFER && curr != 0){ //if it is a data frame we need the size
+            int error = TRUE;
+            if(destuff(word, curr, packet, &pSize) == 0){
+                if(word[2] == C_S0 && lastFrameRcv == 1){
+                    if (writeToFile(&fileFd, packet, pSize, &sequenceNumber) != -1){ // application level error
+                        sendControl(fd, C_RR1);
+                        lastFrameRcv = 0;
+                        error = FALSE;
+                    }
+                }
+                else if(word[2] == C_S1 && lastFrameRcv == 0) {
+                    if (writeToFile(&fileFd, packet, pSize, &sequenceNumber) != -1){ // application level error
+                        sendControl(fd, C_RR0);
+                        lastFrameRcv = 1;
+                        error = FALSE;
+                    }
+                }
+            }
+
+            if(error) {
+                if(word[2] == C_S0){
+                    sendControl(fd, C_REJ0);
+                }
+                else if(word[2] == C_S1) {
+                    sendControl(fd, C_REJ1);
+                }
+            }
+            curr = 0;
+        }
+        if(currGlobalState == ESTABLISH){ 
+            sendControl(fd,C_UA);
+            currGlobalState = TRANSFER;
+        }
+        else if(currGlobalState==TERMINATE) sendControl(fd,C_DISC);
+    }
+
+
+    sleep(2);
+
+    tcsetattr(fd,TCSANOW,&oldtio);
+    close(fd);
+    return 0;
+}
