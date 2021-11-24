@@ -81,12 +81,12 @@ int parsePacket(int *fd, unsigned char *packet, int pSize, int *sequenceNumber){
         int size = (packet[2] << 2) | packet[3];
         printf("size - %d\n", size);
 
-        if(write(*fd,&(packet[4]),size) != -1){
-            *sequenceNumber = (*sequenceNumber + 1) % 256;
-            return 0;
+        if(write(*fd,&(packet[4]),size) == -1){
+            perror("Error while writing");
+            return -1;
         }
-        printf("Wrong writing \n");
-        sleep(3);
+        *sequenceNumber = (*sequenceNumber + 1) % 256;
+        return 0;
     } /*else if(packet[0] == 0x01 && packet[1] <= (*sequenceNumber)){ _______________________________________________________________________-
         *sequenceNumber = (*sequenceNumber + 1) % 256;
         return 0;    

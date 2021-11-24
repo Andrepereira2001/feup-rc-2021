@@ -1,7 +1,7 @@
 emissor = emissor/
 recetor = recetor/
 
-make: ${emissor}emissor.h ${recetor}recetor.h ${emissor}emissor.c ${recetor}recetor.c
+make: ${emissor}emissor.h ${recetor}recetor.h ${emissor}emissor.c ${recetor}recetor.c VAR.h
 	gcc ${emissor}emissor.c -o emissor.o
 	gcc ${recetor}recetor.c -o recetor.o
 
