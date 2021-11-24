@@ -290,6 +290,7 @@ int llread(unsigned char *word, int *wordSize){
         dataLinkState(buf[0],word, wordSize);
         printf("%x ",buf[0]);
     }
+    currDataState = START; 
     printf("\n");
 }
 
@@ -349,10 +350,6 @@ int communicate(int fileFd){
                 frameBackup.acceptedFrame = FALSE;
             }
         }
-        
-        currDataState = START; 
-        printf("\n");
-        
     }
 
     sendControl(fd, C_UA);
