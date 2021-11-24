@@ -37,4 +37,6 @@ int parsePacket(int *fd, unsigned char *packet, int pSize, int *sequenceNumber);
 
 int dataLinkState(unsigned char data,unsigned char* word, int* curr);
 
+int communicate(int fd);
+
 #endif // RECETOR_H_

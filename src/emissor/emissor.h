@@ -53,6 +53,10 @@ int sendControl(int fd,unsigned char control);
 
 int createPacket(AppPacket * appPacket, unsigned char * data, int dataSize);
 
-int readFile(int fileFd, unsigned char * buf, AppPacket * appPacket);
+int readFile(int fileFd, AppPacket * appPacket);
+
+int communicate(int fileFd);
+
+int llread(unsigned char *word, int *wordSize);
 
 #endif // EMISSOR_H_

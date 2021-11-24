@@ -243,7 +243,8 @@ int createPacket(AppPacket * appPacket, unsigned char * data, int dataSize){
     return 0;
 }
 
-int readFile(int fileFd, unsigned char * buf, AppPacket * appPacket){
+int readFile(int fileFd, AppPacket * appPacket){
+    unsigned char buf[255];
     if (appPacket->packetState == P_END){
         return 1;
     }
@@ -280,12 +281,90 @@ int readFile(int fileFd, unsigned char * buf, AppPacket * appPacket){
     return 0;
 }
 
+int llread(unsigned char *word, int *wordSize){
+    unsigned char buf[255];
+
+    //Read byte sent by receiver
+    while(currDataState != END){
+        receiveMessage(fd,buf);
+        dataLinkState(buf[0],word, wordSize);
+        printf("%x ",buf[0]);
+    }
+    printf("\n");
+}
+
+int communicate(int fileFd){
+    //data link variables
+    unsigned char word[255];
+    int curr = 0;
+    FrameBackup frameBackup;
+    frameBackup.frameToSend = 0;
+    frameBackup.acceptedFrame = TRUE;
+    
+    //application variables
+    AppPacket appPacket;
+    appPacket.pSize = 0;
+    appPacket.sequenceNumber = 0;
+    appPacket.packetState = P_START;
+    appPacket.packet = malloc (255 * sizeof (unsigned char));
+
+    while(currGlobalState != GLOBAL_END) {
+        alarmCalls = 0;
+        
+        if(currGlobalState == ESTABLISH){ 
+            sendControl(fd, C_SET);
+        }
+        else if(currGlobalState == TRANSFER){
+            if(frameBackup.acceptedFrame == TRUE){
+                int res = readFile(fileFd, &appPacket);
+                if (res == -1){
+                    printf("Error building packet\n");
+                    return -1;
+                } else if(res == 1){
+                    currGlobalState = TERMINATE; 
+                }
+                else {
+                    sendFrame(fd, appPacket.packet, appPacket.pSize, &frameBackup);
+                }
+            }
+            else if(frameBackup.acceptedFrame == FALSE){
+                sendLatestFrame(fd, &frameBackup);
+            }
+        }
+
+        if(currGlobalState == TERMINATE){
+            sendControl(fd, C_DISC);
+        }
+
+        llread(word,&curr);
+
+        if(currGlobalState == TRANSFER){
+            if( word[2] == C_RR0 ){
+                frameBackup.frameToSend = 0;
+                frameBackup.acceptedFrame = TRUE;
+            } else if (word[2] == C_RR1){
+                frameBackup.frameToSend = 1;
+                frameBackup.acceptedFrame = TRUE;
+            } else if (word[2] == C_REJ0 || word[2] == C_REJ1){ 
+                frameBackup.acceptedFrame = FALSE;
+            }
+        }
+        
+        currDataState = START; 
+        printf("\n");
+        
+    }
+
+    sendControl(fd, C_UA);
+    alarm(0);
+
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
-    int c,res, fileFd;
+    int fileFd;
     struct termios oldtio,newtio;
-    unsigned char buf[255];
-    int i, sum = 0, speed = 0;
     
     (void) signal(SIGALRM, alarmCall); 
     
@@ -340,76 +419,11 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-
-    //data link variables
-    unsigned char word[255];
-    int curr = 0;
-    FrameBackup frameBackup;
-    frameBackup.frameToSend = 0;
-    frameBackup.acceptedFrame = TRUE;
-    
-    //application variables
-    AppPacket appPacket;
-    appPacket.pSize = 0;
-    appPacket.sequenceNumber = 0;
-    appPacket.packetState = P_START;
-    appPacket.packet = malloc (255 * sizeof (unsigned char));
-
-    while(currGlobalState != GLOBAL_END) {
-        alarmCalls = 0;
-        
-        if(currGlobalState == ESTABLISH){ 
-            sendControl(fd, C_SET);
-        }
-        else if(currGlobalState == TRANSFER){
-            if(frameBackup.acceptedFrame == TRUE){
-                int res = readFile(fileFd, buf, &appPacket);
-                if (res == -1){
-                    printf("Error building packet\n");
-                } else if(res == 1){
-                    currGlobalState = TERMINATE; 
-                }
-                else {
-                    sendFrame(fd, appPacket.packet, appPacket.pSize, &frameBackup);
-                }
-            }
-            else if(frameBackup.acceptedFrame == FALSE){
-                sendLatestFrame(fd, &frameBackup);
-            }
-        }
-
-        if(currGlobalState == TERMINATE){
-            sendControl(fd, C_DISC);
-        }
-
-        //Read byte sent by receiver
-        while(currDataState != END && alarmCalls <= 3){
-            res = receiveMessage(fd,buf);
-            dataLinkState(buf[0],word,&curr);
-            printf("%x ",buf[0]);
-        }
-        printf("\n");
-
-        if(currGlobalState == TRANSFER){
-            if( word[2] == C_RR0 ){
-                frameBackup.frameToSend = 0;
-                frameBackup.acceptedFrame = TRUE;
-            } else if (word[2] == C_RR1){
-                frameBackup.frameToSend = 1;
-                frameBackup.acceptedFrame = TRUE;
-            } else if (word[2] == C_REJ0 || word[2] == C_REJ1){ 
-                frameBackup.acceptedFrame = FALSE;
-            }
-        }
-        
-        currDataState = START; 
-        printf("\n");
-        
+    //start sending data
+    if (communicate(fileFd) != 0){
+        perror("communication error");
+        exit(-1);
     }
-
-    sendControl(fd, C_UA);
-    alarm(0);
-
 
     sleep(2);
    

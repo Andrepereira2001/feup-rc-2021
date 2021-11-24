@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "../VAR.h"
 #include "recetor.h"
@@ -218,6 +219,88 @@ int dataLinkState(unsigned char data,unsigned char* word, int* curr){
     }
 }
 
+int llread(int fd, unsigned char *word, int *wordSize){
+    unsigned char buf[255];
+    while (currDataState!=END) {       /* loop for input */
+          receiveMessage(fd,buf);   /* returns after 5 chars have been input */
+          dataLinkState(buf[0],word,wordSize);
+          printf("%x ",buf[0]);
+    }
+    printf("\n");
+    currDataState = START;
+
+    return 0;
+}
+
+int communicate(int fd){
+    //data-link variables
+    unsigned char word[255];
+    int curr = 0;
+    int lastFrameRcv=1;
+
+    // application variables
+    unsigned char packet[255];
+    int pSize=0;
+    int sequenceNumber = 255;
+    int fileFd;
+    
+
+    while (currGlobalState != GLOBAL_END){
+        llread(fd,word,&curr);
+
+        if(currGlobalState==TRANSFER && curr != 0){ //if it is a data frame we need the size
+            int error = TRUE;
+            if(destuff(word, curr, packet, &pSize) == 0){
+                if(word[2] == C_S0 /*&& lastFrameRcv == 1*/){
+                    if(lastFrameRcv == 1){
+                        if (parsePacket(&fileFd, packet, pSize, &sequenceNumber) != -1){ // application level error
+                            sendControl(fd, C_RR1);
+                            lastFrameRcv = 0;
+                            error = FALSE;
+                        }
+                    }
+                    else if (lastFrameRcv == 0){ 
+                        sendControl(fd, C_RR1);
+                        lastFrameRcv = 0;
+                        error = FALSE;
+                    }
+                }
+                else if(word[2] == C_S1 /*&& lastFrameRcv == 0*/) {
+                    if(lastFrameRcv == 0){
+                        if (parsePacket(&fileFd, packet, pSize, &sequenceNumber) != -1){ // application level error
+                            sendControl(fd, C_RR0);
+                            lastFrameRcv = 1;
+                            error = FALSE;
+                        }
+                    }
+                    else if (lastFrameRcv == 1){ 
+                        sendControl(fd, C_RR0);
+                        lastFrameRcv = 1;
+                        error = FALSE;
+                    }
+                }
+            }
+
+            if(error) {
+                if(word[2] == C_S0){
+                    sendControl(fd, C_REJ0);
+                }
+                else if(word[2] == C_S1) {
+                    sendControl(fd, C_REJ1);
+                }
+            }
+            curr = 0;
+        }
+        if(currGlobalState == ESTABLISH){ 
+            sendControl(fd,C_UA);
+            currGlobalState = TRANSFER;
+        }
+        else if(currGlobalState==TERMINATE) sendControl(fd,C_DISC);
+    }
+
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
     int fd, res;
@@ -272,70 +355,11 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
     
-    //data-link variables
-    unsigned char word[255];
-    int curr = 0;
-    int lastFrameRcv=1;
-
-    // application variables
-    unsigned char packet[255];
-    int pSize=0;
-    int sequenceNumber = 255;
-    int fileFd;
-    unsigned char buf[255];
-
-    while (currGlobalState != GLOBAL_END){
-        while (currDataState!=END) {       /* loop for input */
-          res = receiveMessage(fd,buf);   /* returns after 5 chars have been input */
-          dataLinkState(buf[0],word,&curr);
-          printf("%x ",buf[0]);
-        }
-        printf("\n");
-
-        currDataState = START;
-        if(currGlobalState==TRANSFER && curr != 0){ //if it is a data frame we need the size
-            int error = TRUE;
-            if(destuff(word, curr, packet, &pSize) == 0){
-                printf("boas1\n");
-                if(word[2] == C_S0 && lastFrameRcv == 1){
-                    printf("boas2\n");
-                    if (parsePacket(&fileFd, packet, pSize, &sequenceNumber) != -1){ // application level error
-                        printf("boas3\n");
-                        sendControl(fd, C_RR1);
-                        lastFrameRcv = 0;
-                        error = FALSE;
-                    }
-                }
-                else if(word[2] == C_S1 && lastFrameRcv == 0) {
-                    printf("boas4\n");
-                    if (parsePacket(&fileFd, packet, pSize, &sequenceNumber) != -1){ // application level error
-                        printf("boas5\n");
-                        sendControl(fd, C_RR0);
-                        lastFrameRcv = 1;
-                        error = FALSE;
-                    }
-                }
-            }
-
-            if(error) {
-                if(word[2] == C_S0){
-                    sendControl(fd, C_REJ0);
-                    lastFrameRcv = 1;
-                }
-                else if(word[2] == C_S1) {
-                    sendControl(fd, C_REJ1);
-                    lastFrameRcv = 0;
-                }
-            }
-            curr = 0;
-        }
-        if(currGlobalState == ESTABLISH){ 
-            sendControl(fd,C_UA);
-            currGlobalState = TRANSFER;
-        }
-        else if(currGlobalState==TERMINATE) sendControl(fd,C_DISC);
+    //start reading data sent
+    if (communicate(fd) != 0){
+        perror("communication error");
+        exit(-1);
     }
-
 
     sleep(2);
 
