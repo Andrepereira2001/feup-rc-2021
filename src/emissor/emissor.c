@@ -111,11 +111,9 @@ int dataLinkState(unsigned char data,unsigned char* word, int* curr){
                 *curr = 0;
                 if(currGlobalState == ESTABLISH && word[2] == C_UA) {
                     currGlobalState = TRANSFER; 
-                    alarm(0);
                 }
                 else if(currGlobalState == TERMINATE && word[2] == C_DISC) {
                     currGlobalState = GLOBAL_END;
-                    alarm(0);
                 }
             }
             else{
@@ -349,14 +347,11 @@ int communicate(int fileFd){
             if( word[2] == C_RR0 ){
                 frameBackup.frameToSend = 0;
                 frameBackup.acceptedFrame = TRUE;
-                alarm(0);
             } else if (word[2] == C_RR1){
                 frameBackup.frameToSend = 1;
                 frameBackup.acceptedFrame = TRUE;
-                alarm(0);
             } else if (word[2] == C_REJ0 || word[2] == C_REJ1){ 
                 frameBackup.acceptedFrame = FALSE;
-                alarm(0);
             }
         }
     }
