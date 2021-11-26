@@ -87,10 +87,7 @@ int parsePacket(int *fd, unsigned char *packet, int pSize, int *sequenceNumber){
         }
         *sequenceNumber = (*sequenceNumber + 1) % 256;
         return 0;
-    } /*else if(packet[0] == 0x01 && packet[1] <= (*sequenceNumber)){ _______________________________________________________________________-
-        *sequenceNumber = (*sequenceNumber + 1) % 256;
-        return 0;    
-    }*/
+    }
     else if (packet[0] == 0x02){
         if( packet[1] == 0x01){
             int size = packet[2];
@@ -251,7 +248,7 @@ int communicate(int fd){
         if(currGlobalState==TRANSFER && curr != 0){ //if it is a data frame we need the size
             int error = TRUE;
             if(destuff(word, curr, packet, &pSize) == 0){
-                if(word[2] == C_S0 /*&& lastFrameRcv == 1*/){
+                if(word[2] == C_S0){
                     if(lastFrameRcv == 1){
                         if (parsePacket(&fileFd, packet, pSize, &sequenceNumber) != -1){ // application level error
                             sendControl(fd, C_RR1);
@@ -265,7 +262,7 @@ int communicate(int fd){
                         error = FALSE;
                     }
                 }
-                else if(word[2] == C_S1 /*&& lastFrameRcv == 0*/) {
+                else if(word[2] == C_S1) {
                     if(lastFrameRcv == 0){
                         if (parsePacket(&fileFd, packet, pSize, &sequenceNumber) != -1){ // application level error
                             sendControl(fd, C_RR0);
