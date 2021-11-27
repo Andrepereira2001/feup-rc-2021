@@ -298,8 +298,7 @@ int communicate(int fd){
     return 0;
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv){
     int fd, res;
     struct termios oldtio,newtio;
 

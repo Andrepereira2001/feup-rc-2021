@@ -18,7 +18,7 @@ unsigned int lastMessageSize = 0;
 
 int fd; // Serial port file descriptor
 
-unsigned int frameSequenceNumber = 0; // switch between 0 and 1
+unsigned int frameSequenceNumber = 0; // number that must be received switch between 0 and 1
 
 struct termios oldtio,newtio;
 

@@ -8,26 +8,78 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+#include "dataLinkRecetor.h"
 #include "../VAR.h"
 #include "recetor.h"
 
-/*int appFunction(){
-    //Application
-    llopen();
-    while(){
-        packet = llread();
-        parsePacket();
-        writeToFile();
+
+int parsePacket(int *fileFd, AppPacket * packet){
+    printf("sq n : %d------------ packet 1: %d\n", packet->sequenceNumber, packet->packet[1]);
+
+    //Control Packet Start
+    if (packet->packet[0] == 0x02){
+        if( packet->packet[1] == 0x01){
+            int size = packet->packet[2];
+            unsigned char fileName[255];
+            for (int i = 0 ; i < size; i++){
+                fileName[i] = packet->packet[i+3];
+            }
+            printf("filename -> %s\n",fileName);
+            *fileFd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+            if (*fileFd < 0) {printf("Erro while opening %s",fileName); return(-1);}
+            packet->sequenceNumber = 255;
+            packet->packetState = P_DATA;
+            return 0;
+        }
+    } 
+
+    //DATA Packet
+    else if(packet->packet[0] == 0x01 && packet->packet[1] == (packet->sequenceNumber + 1) % 256){
+        int size = (packet->packet[2] << 2) | packet->packet[3];
+        printf("size - %d\n", size);
+
+        if(write(*fileFd,&(packet->packet[4]),size) == -1){
+            perror("Error while writing");
+            return -1;
+        }
+        packet->sequenceNumber = (packet->sequenceNumber + 1) % 256;
+        return 0;
     }
-    llclose();
-    return 0;
-}*/
+    
+    //Control Packet End
+    else if (packet->packet[0] == 0x03){
+        close(*fileFd);
+        packet->packetState = P_END;
+        return 0;
+    }
+    return -1;
+}
 
-int main(int argc, char** argv)
-{
-    int fd, res;
-    struct termios oldtio,newtio;
+int appFunction(char *port){
 
+    //Application
+    int fd, fileFd, bufSize;
+    unsigned char buf[255];
+
+    AppPacket appPacket;
+    appPacket.pSize = 0;
+    appPacket.sequenceNumber = 255;
+    appPacket.packetState = P_START;
+    appPacket.packet = malloc (255 * sizeof (unsigned char));
+
+    
+    fd = llopenRecetor(port);
+
+    while(appPacket.packetState != P_END){ //when we receive the end packet
+        llread(fd, appPacket.packet, &appPacket.pSize);
+        parsePacket(&fileFd, &appPacket);
+    }
+
+    llclose(fd);
+}
+
+int main(int argc, char** argv){
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
   	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
@@ -35,52 +87,11 @@ int main(int argc, char** argv)
       exit(1);
     }
 
-    /*
-        Open serial port device for reading and writing and not as controlling tty
-        because we don't want to get killed if linenoise sends CTRL-C.
-    */
-
-    fd = open(argv[1], O_RDWR | O_NOCTTY );
-    if (fd <0) {perror(argv[1]); exit(-1); }
-
-    if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
-      perror("tcgetattr");
-      exit(-1);
-    }
-
-    bzero(&newtio, sizeof(newtio));
-    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-    newtio.c_iflag = IGNPAR;
-    newtio.c_oflag = 0;
-
-    /* set input mode (non-canonical, no echo,...) */
-    newtio.c_lflag = 0;
-
-    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 1;   /* blocking read until 5 chars received */
-
-    /* 
-        VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-        leitura do(s) próximo(s) caracter(es)
-    */
-
-    tcflush(fd, TCIOFLUSH);
-
-    if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
-
-    printf("New termios structure set\n");
-    
-    //start reading data sent
-    if (appFunction(fd) != 0){
+    //start sending data
+    if (appFunction(argv[1]) != 0){
         perror("communication error");
         exit(-1);
     }
 
-    sleep(2);
-    tcsetattr(fd,TCSANOW,&oldtio);
-    close(fd);
     return 0;
 }

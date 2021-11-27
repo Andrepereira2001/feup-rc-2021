@@ -37,4 +37,4 @@ int llwrite(int fd, unsigned char* data, int dataSize);
 
 int llclose(int fd);
 
-#endif // DATALINK_H_
+#endif // DATALINKEMISSOR_H_

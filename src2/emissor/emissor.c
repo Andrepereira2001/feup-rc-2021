@@ -46,7 +46,7 @@ int buildPacket(unsigned char * buf, int bufSize, AppPacket * appPacket){
 
 int buildPacketEnd(AppPacket * appPacket){
     appPacket->packet[0] = 0x03;
-    appPacket->pSize = 0;
+    appPacket->pSize = 1;
 }
 
 int readFromFile(int fileFd,unsigned char *buf){
@@ -81,8 +81,9 @@ int appFunction(int fileFd, char *port){
             else if(bufSize == -1){
                 printf("Error reading file\n");
                 return -1;
-            }    
-            buildPacket(buf, bufSize, &appPacket);
+            }else {
+                buildPacket(buf, bufSize, &appPacket);
+            }
         }
 
         int n = llwrite(fd, appPacket.packet , appPacket.pSize); //returns number of chars written
@@ -91,8 +92,7 @@ int appFunction(int fileFd, char *port){
     llclose(fd);
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv){
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
   	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
