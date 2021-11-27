@@ -29,8 +29,7 @@ unsigned int lastMessageSize = 0;
 
 int fd; // Serial port file descriptor
 
-void alarmCall()                   // atende alarme
-{
+void alarmCall(){                   // atende alarme
 	printf("alarme # %d\n", alarmCalls);
 	flag=1;
 	alarmCalls++;
