@@ -75,8 +75,8 @@ int dataLinkState(unsigned char data, enum FrameState *frameState, int globalSta
         case START:
             if(data == FLAG){
                 *frameState = FLAG_RCV;
-                frame->frame[frame->sizeFrame]=data;
-                frame->sizeFrame = frame->sizeFrame+1;
+                frame->frame[0]=data;
+                frame->sizeFrame = 1;
             }
             break;
         case FLAG_RCV:
@@ -101,7 +101,7 @@ int dataLinkState(unsigned char data, enum FrameState *frameState, int globalSta
                 frame->frame[0]=data;
                 frame->sizeFrame = 1;
             }
-            else if(data == C_SET && (globalState == TRANSFER || globalState == ESTABLISH)){
+            else if(data == C_SET && globalState == ESTABLISH){
                 *frameState=C_RCV;
                 frame->frame[frame->sizeFrame]=data;
                 frame->sizeFrame = frame->sizeFrame+1;
@@ -141,7 +141,6 @@ int dataLinkState(unsigned char data, enum FrameState *frameState, int globalSta
             if(data==FLAG){
                 *frameState=END;
                 frame->frame[frame->sizeFrame]=data;
-                frame->sizeFrame = 0;
             }
             else if (globalState == TRANSFER){
                 *frameState = DATA_RCV;
@@ -263,29 +262,38 @@ int llread(int fd, unsigned char *data, int *dataSize){
 
     while( !end ){
         frameResponseState = START;
+        frameResponse.sizeFrame = 0;
+
         while(frameResponseState != END){
+            
             receiveMessage(fd,buf);
             dataLinkState(buf[0], &frameResponseState, TRANSFER, &frameResponse);
             printf("%x ",buf[0]);
         }
 
-        if(frameResponse.frame[2] == C_SET){
-            sendControlFrame(fd, C_UA);
-        }
-        else if(destuff(&frameResponse,data,dataSize) == -1){
+        if(destuff(&frameResponse,data,dataSize) == -1){
+            printf("destuff-badd\n");
             if(frameSequenceNumber == 0){
                 sendControlFrame(fd, C_REJ0);
             }else if(frameSequenceNumber == 1){
                 sendControlFrame(fd, C_REJ1);
             }
-        }else if(frameResponse.frame[2] == C_S0 && frameSequenceNumber == 0){
-            frameSequenceNumber = 1;
-            sendControlFrame(fd, C_RR1);
-            end = TRUE;
-        }else if(frameResponse.frame[2] == C_S1 && frameSequenceNumber == 1){
-            frameSequenceNumber = 0;
-            sendControlFrame(fd, C_RR0);
-            end = TRUE;
+        }else if(frameResponse.frame[2] == C_S0){
+            if(frameSequenceNumber == 0){
+                frameSequenceNumber = 1;
+                sendControlFrame(fd, C_RR1);
+                end = TRUE;
+            } else if(frameSequenceNumber == 1){
+                sendControlFrame(fd, C_RR1);
+            }
+        }else if(frameResponse.frame[2] == C_S1){
+            if(frameSequenceNumber == 1){
+                frameSequenceNumber = 0;
+                sendControlFrame(fd, C_RR0);
+                end = TRUE;
+            } else if(frameSequenceNumber == 0){
+                sendControlFrame(fd, C_RR0);
+            }
         }
     }
 
