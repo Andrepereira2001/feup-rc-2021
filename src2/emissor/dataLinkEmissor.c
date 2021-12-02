@@ -18,7 +18,7 @@ unsigned int lastMessageSize = 0;
 
 int fd; // Serial port file descriptor
 
-unsigned int frameSequenceNumber = 0; // number that must be received switch between 0 and 1
+unsigned int frameSequenceNumber = 0; // last frame sent switch between 0 and 1
 
 struct termios oldtio,newtio;
 
@@ -208,7 +208,6 @@ int establish(){
         printf("%x ",buf[0]);
     }
 
-    alarm(0);
     free(frameResponse.frame);
     return 0;
 }
@@ -315,6 +314,8 @@ int llwrite(int fd, unsigned char* data, int dataSize){
     buildFrame(fd, data, dataSize, &frameBackup);
 
     do{
+        frameResponseState = START;
+        frameResponse.sizeFrame = 0;
         //send frame to be sent 
         sendMessage(fd, frameBackup.frame, frameBackup.sizeFrame);
         
@@ -326,16 +327,23 @@ int llwrite(int fd, unsigned char* data, int dataSize){
         }
 
         if(frameResponse.frame[2] == C_RR1 && frameSequenceNumber == 0){
+            printf("accepted RR1\n");
             end = TRUE;
             frameSequenceNumber = 1;
         }else if(frameResponse.frame[2] == C_RR0 && frameSequenceNumber == 1){
+            printf("accepted RR0\n");
             end = TRUE;
+            frameSequenceNumber = 0;
+        }else if(frameResponse.frame[2] == C_REJ1){
+            printf("accepted REJ1\n");
+            frameSequenceNumber = 1;
+        }else if(frameResponse.frame[2] == C_REJ0){
+            printf("accepted REJ0\n");
             frameSequenceNumber = 0;
         }
         
     }while( !end );
 
-    alarm(0);
     free(frameBackup.frame);
     free(frameResponse.frame);
     
@@ -375,4 +383,3 @@ int llclose(int fd){
     close(fd);
     return 0;
 }
-
