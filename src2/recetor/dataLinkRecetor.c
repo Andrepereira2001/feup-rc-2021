@@ -15,6 +15,11 @@ struct termios oldtio,newtio;
 
 unsigned int frameSequenceNumber = 0; // number that must be received switch between 0 and 1
 
+int errorRate = 5;
+long int errorCounter = 100;
+
+int waitTime = 0;
+
 int openSerialPort(char * port) {
     /*
         Open serial port device for reading and writing and not as controlling tty
@@ -127,12 +132,14 @@ int dataLinkState(unsigned char data, enum FrameState *frameState, int globalSta
                 frame->frame[0]=data;
                 frame->sizeFrame = 1;
             }
-            else if(data == frame->frame[1]^frame->frame[2]){
+            else if(data == frame->frame[1]^frame->frame[2] /*&& (errorCounter > errorRate)*/){
                 *frameState = BCC_OK;
                 frame->frame[frame->sizeFrame]=data;
                 frame->sizeFrame = frame->sizeFrame+1;
+                errorCounter = rand() % 1000;
             }
             else{
+                errorCounter = rand() % 1000;
                 *frameState=START;
                 frame->sizeFrame = 0;
             }
@@ -182,11 +189,11 @@ int sendControlFrame(int fd,unsigned char control){
 }
 
 int establish(int fd){
-    unsigned char buf[255];
+    unsigned char buf[2047];
     enum FrameState frameState = START;
 
     Frame frameResponse;
-    frameResponse.frame = malloc (255 * sizeof (unsigned char));
+    frameResponse.frame = malloc (2047 * sizeof (unsigned char));
     frameResponse.sizeFrame = 0;
 
     //Read control frame sent by transmitter (C_SET)
@@ -195,6 +202,8 @@ int establish(int fd){
         dataLinkState(buf[0], &frameState, ESTABLISH, &frameResponse);
         printf("%x ",buf[0]);
     }
+
+    usleep(waitTime);
 
     sendControlFrame(fd, C_UA);
     
@@ -254,10 +263,10 @@ int llread(int fd, unsigned char *data, int *dataSize){
 
     int end = FALSE;
 
-    unsigned char buf[255];
+    unsigned char buf[2047];
     enum FrameState frameResponseState = START;
     Frame frameResponse;
-    frameResponse.frame = malloc (255 * sizeof (unsigned char));
+    frameResponse.frame = malloc (2047 * sizeof (unsigned char));
     frameResponse.sizeFrame = 0;
 
     while( !end ){
@@ -269,6 +278,8 @@ int llread(int fd, unsigned char *data, int *dataSize){
             dataLinkState(buf[0], &frameResponseState, TRANSFER, &frameResponse);
             printf("%x ",buf[0]);
         }
+
+        usleep(waitTime);
 
         if(destuff(&frameResponse,data,dataSize) == -1){
             if(frameSequenceNumber == 0){
@@ -299,11 +310,11 @@ int llread(int fd, unsigned char *data, int *dataSize){
 }
 
 int llclose(int fd){
-    unsigned char buf[255];
+    unsigned char buf[2047];
     enum FrameState frameState = START;
 
     Frame frameResponse;
-    frameResponse.frame = malloc (255 * sizeof (unsigned char));
+    frameResponse.frame = malloc (2047 * sizeof (unsigned char));
     frameResponse.sizeFrame = 0;
 
 
@@ -313,6 +324,8 @@ int llclose(int fd){
         dataLinkState(buf[0], &frameState, TERMINATE, &frameResponse);
         printf("%x ",buf[0]);
     }
+
+    usleep(waitTime);
 
     sendControlFrame(fd, C_DISC);
     free(frameResponse.frame);   

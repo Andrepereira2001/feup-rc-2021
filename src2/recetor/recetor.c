@@ -7,6 +7,8 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <sys/time.h>
 
 
 #include "dataLinkRecetor.h"
@@ -60,13 +62,13 @@ int appFunction(char *port){
 
     //Application
     int fd, fileFd, bufSize;
-    unsigned char buf[255];
+    unsigned char buf[2047];
 
     AppPacket appPacket;
     appPacket.pSize = 0;
     appPacket.sequenceNumber = 255;
     appPacket.packetState = P_START;
-    appPacket.packet = malloc (255 * sizeof (unsigned char));
+    appPacket.packet = malloc (2047 * sizeof (unsigned char));
 
     
     fd = llopenRecetor(port);
@@ -80,6 +82,7 @@ int appFunction(char *port){
 }
 
 int main(int argc, char** argv){
+    srand(time(0));
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
   	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
@@ -87,11 +90,27 @@ int main(int argc, char** argv){
       exit(1);
     }
 
+    struct timeval start, end;
+    double elapsedTime;
+    clock_t startP, endP;
+    
+    startP = clock();
+    gettimeofday(&start, NULL);
+
     //start sending data
     if (appFunction(argv[1]) != 0){
         perror("communication error");
         exit(-1);
     }
 
+    gettimeofday(&end, NULL);
+
+    elapsedTime = (end.tv_sec - start.tv_sec) * 1000.0; 
+    elapsedTime += (end.tv_usec - start.tv_usec) / 1000.0;
+
+    endP = clock();
+
+    printf("Receiver execution time - %f\n",elapsedTime * 1.0e-3);
+    printf("Receiver process execution time - %f\n",((double) (endP - startP)) / CLOCKS_PER_SEC);
     return 0;
 }

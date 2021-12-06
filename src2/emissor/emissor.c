@@ -9,6 +9,8 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "emissor.h"
 #include "dataLinkEmissor.h"
@@ -59,22 +61,29 @@ int appFunction(char *port, char *fileName){
     int fileFd;
     fileFd = open(fileName, O_RDONLY);
     if (fileFd < 0) {perror("Erro while opening test.txt"); exit(-1);}
+
+    char finalName[255] = "clone_";
+
+    strtok(fileName, "/");
+
+    strcat(finalName, strtok(NULL, "/"));
+
     
     int fd, bufSize;
     AppPacket appPacket;
     appPacket.pSize = 0;
     appPacket.sequenceNumber = 0;
     appPacket.packetState = P_START;
-    appPacket.packet = malloc (255 * sizeof (unsigned char));
+    appPacket.packet = malloc (2047 * sizeof (unsigned char));
 
-    unsigned char buf[255];
+    unsigned char buf[2047];
     
     fd = llopenEmissor(port);
 
     while(appPacket.packetState != P_END){
 
         if(appPacket.packetState == P_START){
-            buildPacketStart(fileName, &appPacket);
+            buildPacketStart(finalName, &appPacket);
             appPacket.packetState = P_DATA;
         }else if(appPacket.packetState == P_DATA){
             bufSize = readFromFile(fileFd, buf);
@@ -110,6 +119,12 @@ int main(int argc, char** argv){
         exit(1);
     }
 
+    struct timeval start, end;
+    double elapsedTime;
+    clock_t startP, endP;
+
+    startP = clock();
+    gettimeofday(&start, NULL);
 
     //start sending data
     if (appFunction(argv[1], argv[2]) != 0){
@@ -117,5 +132,14 @@ int main(int argc, char** argv){
         exit(-1);
     }
 
+    gettimeofday(&end, NULL);
+
+    elapsedTime = (end.tv_sec - start.tv_sec) * 1000.0; 
+    elapsedTime += (end.tv_usec - start.tv_usec) / 1000.0;
+
+    endP = clock();
+
+    printf("Sender execution time - %f\n",elapsedTime * 1.0e-3);
+    printf("Sender process execution time - %f\n",((double) (endP - startP)) / CLOCKS_PER_SEC);
     return 0;
 }

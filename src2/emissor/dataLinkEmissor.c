@@ -11,9 +11,11 @@
 #include "dataLinkEmissor.h"
 #include "../VAR.h"
 
+int waitTime = 0;
+
 unsigned int alarmCalls = 0, flag = 1;
 
-unsigned char lastMessage[255];
+unsigned char lastMessage[2047];
 unsigned int lastMessageSize = 0;
 
 int fd; // Serial port file descriptor
@@ -193,11 +195,11 @@ int dataLinkState(unsigned char data, enum FrameState *frameState, int globalSta
 }
 
 int establish(){
-    unsigned char buf[255];
+    unsigned char buf[2047];
     enum FrameState frameState = START;
 
     Frame frameResponse;
-    frameResponse.frame = malloc (255 * sizeof (unsigned char));
+    frameResponse.frame = malloc (2047 * sizeof (unsigned char));
     frameResponse.sizeFrame = 0;
 
     sendControlFrame(fd, C_SET);
@@ -208,6 +210,8 @@ int establish(){
         dataLinkState(buf[0], &frameState, ESTABLISH, &frameResponse);
         printf("%x ",buf[0]);
     }
+
+    usleep(waitTime);
 
     free(frameResponse.frame);
     return 0;
@@ -231,7 +235,7 @@ int llopenEmissor(char * port){
 }
 
 int buildFrame(unsigned char * data, int size, Frame *frameBackup){
-    unsigned char *FRAME = malloc (255 * sizeof (unsigned char));
+    unsigned char *FRAME = malloc (2047 * sizeof (unsigned char));
     unsigned int currFrame = 0;
     unsigned char bcc;
     
@@ -305,10 +309,10 @@ int llwrite(int fd, unsigned char* data, int dataSize){
     Frame frameBackup;
 
     //frame to be received and confirmed
-    unsigned char buf[255];
+    unsigned char buf[2047];
     enum FrameState frameResponseState = START;
     Frame frameResponse;
-    frameResponse.frame = malloc (255 * sizeof (unsigned char));
+    frameResponse.frame = malloc (2047 * sizeof (unsigned char));
     frameResponse.sizeFrame = 0;
     
     //frame to be built 
@@ -326,6 +330,8 @@ int llwrite(int fd, unsigned char* data, int dataSize){
             dataLinkState(buf[0], &frameResponseState, TRANSFER, &frameResponse);
             printf("%x ",buf[0]);
         }
+
+        usleep(waitTime);
 
         if(frameResponse.frame[2] == C_RR1 && frameSequenceNumber == 0){
             printf("accepted RR1\n");
@@ -352,11 +358,11 @@ int llwrite(int fd, unsigned char* data, int dataSize){
 }
 
 int llclose(int fd){
-    unsigned char buf[255];
+    unsigned char buf[2047];
     enum FrameState frameState = START;
 
     Frame frameResponse;
-    frameResponse.frame = malloc (255 * sizeof (unsigned char));
+    frameResponse.frame = malloc (2047 * sizeof (unsigned char));
     frameResponse.sizeFrame = 0;
 
     sendControlFrame(fd, C_DISC);
@@ -367,6 +373,8 @@ int llclose(int fd){
         dataLinkState(buf[0], &frameState, TERMINATE, &frameResponse);
         printf("%x ",buf[0]);
     }
+
+    usleep(waitTime);
 
     sendControlFrame(fd, C_UA);
 
