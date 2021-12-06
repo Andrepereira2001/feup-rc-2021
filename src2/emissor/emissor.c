@@ -14,8 +14,8 @@
 #include "dataLinkEmissor.h"
 #include "../VAR.h"
 
-unsigned char *fileName = "./pinguim1.gif";
-unsigned char *fileNameOrg = "./pinguim.gif";
+//unsigned char *fileName = "./pinguim1.gif";
+//unsigned char *fileNameOrg = "./pinguim.gif";
 
 int buildPacketStart(unsigned char * fileName, AppPacket * appPacket){
     appPacket->packet[0] = 0x02;
@@ -28,6 +28,7 @@ int buildPacketStart(unsigned char * fileName, AppPacket * appPacket){
     appPacket->pSize = strlen(fileName) + 4;
 
     appPacket->sequenceNumber = 0;
+    return 0;
 }
 
 int buildPacket(unsigned char * buf, int bufSize, AppPacket * appPacket){
@@ -47,14 +48,18 @@ int buildPacket(unsigned char * buf, int bufSize, AppPacket * appPacket){
 int buildPacketEnd(AppPacket * appPacket){
     appPacket->packet[0] = 0x03;
     appPacket->pSize = 1;
+    return 0;
 }
 
 int readFromFile(int fileFd,unsigned char *buf){
     return read(fileFd,buf,100);
 }
 
-int appFunction(int fileFd, char *port){
-    //Application
+int appFunction(char *port, char *fileName){
+    int fileFd;
+    fileFd = open(fileName, O_RDONLY);
+    if (fileFd < 0) {perror("Erro while opening test.txt"); exit(-1);}
+    
     int fd, bufSize;
     AppPacket appPacket;
     appPacket.pSize = 0;
@@ -100,13 +105,14 @@ int main(int argc, char** argv){
       exit(1);
     }
 
+    if (( argc < 3 )){
+        printf("A file must be specifed\n");
+        exit(1);
+    }
 
-    int fileFd;
-    fileFd = open(fileNameOrg, O_RDONLY);
-    if (fileFd < 0) {perror("Erro while opening test.txt"); exit(-1);}
 
     //start sending data
-    if (appFunction(fileFd, argv[1]) != 0){
+    if (appFunction(argv[1], argv[2]) != 0){
         perror("communication error");
         exit(-1);
     }

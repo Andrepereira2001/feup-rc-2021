@@ -272,7 +272,6 @@ int llread(int fd, unsigned char *data, int *dataSize){
         }
 
         if(destuff(&frameResponse,data,dataSize) == -1){
-            printf("destuff-badd\n");
             if(frameSequenceNumber == 0){
                 sendControlFrame(fd, C_REJ0);
             }else if(frameSequenceNumber == 1){

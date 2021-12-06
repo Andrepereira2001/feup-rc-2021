@@ -189,6 +189,7 @@ int dataLinkState(unsigned char data, enum FrameState *frameState, int globalSta
         case END:
             break;
     }
+    return 0;
 }
 
 int establish(){
@@ -229,7 +230,7 @@ int llopenEmissor(char * port){
     return fd;
 }
 
-int buildFrame(int fd, unsigned char * data, int size, Frame *frameBackup){
+int buildFrame(unsigned char * data, int size, Frame *frameBackup){
     unsigned char *FRAME = malloc (255 * sizeof (unsigned char));
     unsigned int currFrame = 0;
     unsigned char bcc;
@@ -311,7 +312,7 @@ int llwrite(int fd, unsigned char* data, int dataSize){
     frameResponse.sizeFrame = 0;
     
     //frame to be built 
-    buildFrame(fd, data, dataSize, &frameBackup);
+    buildFrame(data, dataSize, &frameBackup);
 
     do{
         frameResponseState = START;
