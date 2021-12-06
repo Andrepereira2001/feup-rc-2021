@@ -265,7 +265,6 @@ int llread(int fd, unsigned char *data, int *dataSize){
         frameResponse.sizeFrame = 0;
 
         while(frameResponseState != END){
-            
             receiveMessage(fd,buf);
             dataLinkState(buf[0], &frameResponseState, TRANSFER, &frameResponse);
             printf("%x ",buf[0]);

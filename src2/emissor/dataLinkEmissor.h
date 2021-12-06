@@ -58,13 +58,13 @@ int receiveMessage(int fd,unsigned char * buf);
 int sendControlFrame(int fd,unsigned char control);
 
 /**
- * @brief depending on the global state of the protocol where the program is
- * it is the state machine that deals with the reception of a frame and confirms the configuration and integrity is correct
+ * @brief depending on the global state of the protocol where the program this is
+ * the state machine that deals with the reception of a frame and confirms the configuration and integrity is correct
  * 
  * @param data - byte read from serial port
  * @param frameState - frame state of the recption frame state machine (configuration steps)
- * @param globalState - fase of the data link protocol (Establish, Data transfer and End)
- * @param frame - to be built with the specific config
+ * @param globalState - phase of the data link protocol (Establish, Data transfer and End)
+ * @param frame - to be filled with the right frame configuration
  * @return int - 0 upon sucess
  */
 int dataLinkState(unsigned char data, enum FrameState *frameState, int globalState, Frame * frame);
