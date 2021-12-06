@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 
 #include "dataLinkRecetor.h"
@@ -87,11 +88,19 @@ int main(int argc, char** argv){
       exit(1);
     }
 
+    clock_t start, end;
+    start = clock();
+
     //start sending data
     if (appFunction(argv[1]) != 0){
         perror("communication error");
         exit(-1);
     }
+
+
+    end = clock();
+
+    printf("Receiver execution time - %f",((double) (end - start)) / CLOCKS_PER_SEC);
 
     return 0;
 }

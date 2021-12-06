@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "emissor.h"
 #include "dataLinkEmissor.h"
@@ -59,6 +60,13 @@ int appFunction(char *port, char *fileName){
     int fileFd;
     fileFd = open(fileName, O_RDONLY);
     if (fileFd < 0) {perror("Erro while opening test.txt"); exit(-1);}
+
+    char finalName[255] = "clone_";
+
+    strtok(fileName, "/");
+
+    strcat(finalName, strtok(NULL, "/"));
+
     
     int fd, bufSize;
     AppPacket appPacket;
@@ -74,7 +82,7 @@ int appFunction(char *port, char *fileName){
     while(appPacket.packetState != P_END){
 
         if(appPacket.packetState == P_START){
-            buildPacketStart(fileName, &appPacket);
+            buildPacketStart(finalName, &appPacket);
             appPacket.packetState = P_DATA;
         }else if(appPacket.packetState == P_DATA){
             bufSize = readFromFile(fileFd, buf);
@@ -110,6 +118,8 @@ int main(int argc, char** argv){
         exit(1);
     }
 
+    clock_t start, end;
+    start = clock();
 
     //start sending data
     if (appFunction(argv[1], argv[2]) != 0){
@@ -117,5 +127,8 @@ int main(int argc, char** argv){
         exit(-1);
     }
 
+    end = clock();
+
+    printf("Sender execution time - %f",((double) (end - start)) / CLOCKS_PER_SEC);
     return 0;
 }
