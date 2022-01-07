@@ -1,11 +1,11 @@
-make: main 
+make: download 
 
-main: main.c utils.o
-	gcc main.c utils.o -o main.o
+download: download.c utils.o
+	gcc download.c utils.o -o download
 
 utils.o: utils.c utils.h
 	gcc -c utils.c -o utils.o
 
 clean:
-	rm main.o utils.o 
+	rm download utils.o 
 
