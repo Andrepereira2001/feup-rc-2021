@@ -8,7 +8,7 @@ both switch ports must be in the same vlan
 ping while in tux24 -> ping 172.16.20.1 (pinging to tux23)
 
 
-## What are the ARP packets adn what are they used for?
+## What are the ARP packets and what are they used for?
 
 ARP stands for `Address Resolution Protocol` so the objective of the protocol is to buil the map table that asigns the received IP to the the respective MAC address. In the following image we can visualize the occurence of one ARP request.
 ![ARP-example](./img/ARP-example.png)
@@ -21,6 +21,7 @@ In the upper image we can verify that tux23 (`172.16.20.1`) wants to know who as
 
 ## What packets does the ping command generate?
 
+Inicialmento o comando ping gera um pacote ARP, de forma a descobrir o endereço MAC do destinatário e de seguida gera pacotes IP que seguem o protocolo ICMP.
 The ping request generates a request packet with an source and destination in order to send a message. Later a new reply packet must be generated with the source and destination IP swaped. The following image show as an example of a ping call.
 ![PING](./img/PING.png)
 
@@ -47,12 +48,12 @@ To be an ARP frame the 13 and 14 bytes of the frame must be 0x08 0x06, this byte
 
 To be an IP frame the 13 and 14 bytes of the frame must be 0x08 0x00, this bytes are specifed in the first layer.
 
-To be an ICMP frame, firstely the frame must be and IP frame nextely the 24 byte must be 0x01, specifed in the second layer.
+To be an ICMP frame, firstely the frame must be an IP frame secondly the 24 byte must be 0x01, specifed in the second layer.
 
 
 ## How to determine the length of a receiving frame?
 
-The lenght is specified in the 17 and 18 bytes of the frame, in the second layer.
+In the wireshark we can see the lenght specified in the 17 and 18 bytes of the frame, in the second layer.
 
 
 
