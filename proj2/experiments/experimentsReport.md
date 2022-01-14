@@ -60,3 +60,37 @@ The lenght is specified in the 17 and 18 bytes of the frame, in the second layer
 
 tux22 -> ip = 172.16.21.1          MAC = 00:21:5A:5A:76:A8
 
+# Comands
+
+Para cada tux, no terminal deles:
+
+ifconfig eth0 uo
+ifconfig eth0 172.16.30.X/24
+ifconfig eth0 
+
+
+No tux3 no GKTerm: 
+
+enable
+pass: no pc
+
+configure terminal
+vlan 30 (da bancada)
+end
+show vlan id 30
+
+configure terminal 
+interface fastethernet 0/1
+switchport mode acess 
+switchport acess vlan 30
+
+
+No tux4 no GKTerm: 
+
+show config -....
+
+
+No tux3: 
+
+ping 172.16
+
