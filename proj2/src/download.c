@@ -11,15 +11,15 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-int dowloadFile(int downloadfd){
+int dowloadFile(int downloadfd, char* file){
     //writing dowloaded data to file
     char buf[255];
 
-    int fd = open("download.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    int fd = open(file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 
-    while (readSocket(&downloadfd, buf) > 0){
-        printf("Download app - %s",buf);
-        write(fd,&buf,strlen(buf));
+    int size;
+    while ((size = readSocket(&downloadfd, buf)) > 0){
+        write(fd,&buf,size);
     }
     close(fd);
 
@@ -48,6 +48,7 @@ int main(int argc, char *argv[]){
 
     printf("Host: %s\n",args.host);
     printf("Path: %s\n",args.path);
+    printf("FileName: %s\n",args.filename);
     printf("user: %s\n",args.user);
     printf("password: %s\n",args.password);
     printf("ip: %s\n",args.ip);
@@ -129,16 +130,16 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "Error opening transfer (150)\n");
         return -1;
     }
+
+    //reads and writes the data on the file
+    if( dowloadFile(downloadfd, args.filename) != 0){
+        fprintf(stderr, "Error downloading file\n");
+        return -1;
+    }
     
     //waiting for transference complete
     if(readText(&socketfd, "226")!= 0){
         fprintf(stderr, "Error transfer completed (226)\n");
-        return -1;
-    }
-
-    //reads and writes de data on the file
-    if( dowloadFile(downloadfd) != 0){
-        fprintf(stderr, "Error downloading file\n");
         return -1;
     }
 

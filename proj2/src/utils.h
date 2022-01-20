@@ -9,6 +9,7 @@ typedef struct {
     char host[DATA_SIZE];
     char path[DATA_SIZE];
     char ip[DATA_SIZE];
+    char filename[DATA_SIZE];
     int port;
 } Args;
 

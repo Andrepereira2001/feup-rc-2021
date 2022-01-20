@@ -1,3 +1,7 @@
 ftp://[<user>:<password>@]<host>/<path>
 
 ftp://anonymous:pass@/ftp.up.pt/url
+
+ftp://rcom:rcom@netlab1.fe.up.pt/file/crab.mp4
+
+ftp://rcom:rcom@netlab1.fe.up.pt/pite.txt

@@ -37,6 +37,14 @@ int parseArguments(char *commandArgs, Args *args){
     memset(args->path, '\0', 255);
     strcpy(args->path, data);
 
+    char path[255];
+    strcpy(path, args->path);
+    char* file = strtok(path, "/");
+    while(file != NULL){
+        memset(args->filename, '\0', 255);
+        strcpy(args->filename, file);
+        file = strtok(NULL, "/");
+    }
 
     //Checking if credentials where given
     data = strtok(host, ":");
@@ -73,6 +81,7 @@ int parseArguments(char *commandArgs, Args *args){
     }
     memset(args->host, '\0', 255);
     strcpy(args->host, data);
+    
     
     return 0;
 }
@@ -146,7 +155,7 @@ int readSocket(int *socketfd, char * buf) {
     size_t bytes;
     bzero(buf, 255);
 
-    bytes = read((*socketfd),buf ,255);
+    bytes = read((*socketfd),buf ,254);
     
     if (bytes < 0) {
         fprintf(stderr, "Error reading from socket\n");
