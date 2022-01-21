@@ -122,3 +122,5 @@ Terminal:
     switchport access vlan 20
     end
     show vlan (porta 4 foi adicionada a vlan 20)
+
+File Name Flash: matidre2802
