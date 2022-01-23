@@ -153,10 +153,6 @@ int main(int argc, char *argv[]){
     if (closeSocket(&socketfd) != 0){
         return -1;
     };
-
-    if (closeSocket(&downloadfd) != 0){
-        return -1;
-    };
     
     return 0;
 }
