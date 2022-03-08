@@ -9,7 +9,7 @@ Implementation of a application and data link data transfer protocol.
 ## Project 2
 Development of a ftp file download application.
 
-Network configuration.
+Configuration of a local network.
 
 👉 [here](https://github.com/Andrepereira2001/feup-rc-2021/tree/master/proj2)
 
